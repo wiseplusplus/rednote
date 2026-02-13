@@ -15,13 +15,15 @@
     .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
     .col{display:flex;flex-direction:column;gap:10px}
     .flex-spacer{flex:1}
+    .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 
     /* Controls */
     button{background:var(--accent);border:0;border-radius:12px;color:white;padding:10px 14px;font-weight:600;cursor:pointer;white-space:nowrap}
     button.secondary{background:#e8d6c6;color:#4b3a2c}
     button:disabled{opacity:.5;cursor:not-allowed}
-    select, input[type="text"]{border:1px solid var(--border);border-radius:10px;padding:8px;background:#fffdf7}
+    select, input[type="text"], input[type="number"], input[type="color"]{border:1px solid var(--border);border-radius:8px;padding:6px;background:#fffdf7; font-size:13px}
     .checkbox-label{display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;user-select:none}
+    label{font-size:12px;color:var(--muted);margin-bottom:2px;display:block}
     
     /* Slide Preview Area */
     .preview-area{
@@ -30,9 +32,8 @@
         padding: 10px 0;
         display: flex;
         gap: 16px;
-        min-height: 450px;
+        min-height: 480px;
         align-items: start;
-        /* Scrollbar styling */
         scrollbar-width: thin;
         scrollbar-color: var(--accent) var(--border);
     }
@@ -43,14 +44,14 @@
     /* Individual Slide */
     .slide-wrapper{display:inline-flex;flex-direction:column;gap:8px;vertical-align:top}
     .slide{
-        width: 300px; /* Base width */
+        width: 320px; /* Wider for better preview */
         aspect-ratio: 3/4;
         background: var(--slide-bg);
         border: 1px solid var(--border);
         border-radius: 8px;
         position: relative;
         overflow: hidden;
-        white-space: normal; /* Reset text wrap */
+        white-space: normal;
         display: flex;
         flex-direction: column;
         color: var(--slide-text);
@@ -63,30 +64,31 @@
     
     /* Slide Content Layers */
     .slide-bg{position:absolute;inset:0;z-index:0;background-size:cover;background-position:center;}
-    .slide-overlay{position:absolute;inset:0;z-index:1;background:rgba(255,255,255,0.0);} /* Optional tint */
+    .slide-overlay{position:absolute;inset:0;z-index:1;} /* Optional tint */
     .slide-content{
         position:relative;z-index:2;
         padding: 24px;
         flex:1;
         display:flex;
         flex-direction:column;
-        overflow-y: hidden; /* Text should fit */
+        overflow-y: hidden;
     }
 
     /* Typography inside slides */
-    .slide-title{font-size: 28px; font-weight: 800; line-height: 1.3; margin-bottom: 16px;}
+    .slide-title{font-weight: 800; line-height: 1.3;}
     .slide-text{font-size: 18px; line-height: 1.6; font-weight: 500;}
     .slide-text ul { padding-left: 20px; margin: 0; }
     .slide-text li { margin-bottom: 8px; }
+    .slide-text p { margin-bottom: 12px; }
 
     /* Cover Page Specifics */
-    .slide.cover .slide-title { font-size: 36px; text-align: center; margin-top: auto; margin-bottom: auto;}
+    .slide.cover .slide-title { text-align: center; position: absolute; }
     
     /* Ending Page Specifics */
     .slide.ending .slide-content { padding: 0; }
     .ending-mask {
         position: absolute; inset: 0; z-index: 10;
-        background: radial-gradient(circle at center, transparent 80px, rgba(0,0,0,0.9) 81px);
+        /* dynamic background set via JS */
         display: flex; align-items: flex-end; justify-content: center;
         padding-bottom: 60px;
     }
@@ -97,28 +99,24 @@
         padding: 8px 16px; border-radius: 99px;
         border: 1px solid rgba(255,255,255,0.4);
         font-size: 14px; font-weight: bold;
+        position: absolute;
+        /* Dynamic bottom position based on circle */
     }
     .circle-highlight {
-        position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-        width: 160px; height: 160px;
-        border: 2px dashed rgba(255,255,255,0.5);
+        position: absolute; left: 50%; transform: translate(-50%, -50%);
         border-radius: 50%;
         pointer-events: none;
+        /* Dynamic top/size */
     }
 
-    /* Controls per slide */
-    .slide-controls{display:flex;gap:4px;justify-content:center;}
-    .icon-btn{padding:4px 8px;font-size:12px;background:#eee;color:#333;border-radius:4px;}
-
-    /* Input/Editor Areas */
-    textarea{width:100%;min-height:120px;background:#fffdf7;border:1px solid var(--border);border-radius:12px;padding:12px;resize:vertical;font-family:inherit}
-    
     /* Utilities */
     .muted{color:var(--muted);font-size:12px}
     .hidden{display:none !important}
     .warning{color:#c83a3a;font-size:11px}
     .rel{position:relative}
-    
+    .control-group{border:1px solid var(--border); padding:8px; border-radius:8px; background:rgba(255,255,255,0.5)}
+    .control-title{font-size:11px; font-weight:bold; color:var(--accent); margin-bottom:6px; text-transform:uppercase; letter-spacing:0.5px}
+
     /* Global Overlay (Loading) */
     .overlay{position:absolute;inset:0;background:rgba(255,250,242,.9);border-radius:12px;display:flex;align-items:center;justify-content:center;gap:10px;flex-direction:column;z-index:20}
     .bar{height:8px;background:#efe4d6;border-radius:999px;overflow:hidden;border:1px solid var(--border);width:200px}
@@ -133,24 +131,114 @@
   <div class="wrap">
     <h1>RedNote Writer (Local AI)</h1>
     
-    <!-- Top Controls: Global Settings -->
+    <!-- Top Controls: Global Settings & Customizations -->
     <div class="card" style="margin-bottom: 12px;">
-      <div class="row">
-        <div class="file-input-wrapper">
-           <button class="secondary">Upload Cover BG</button>
-           <input type="file" id="coverUpload" accept="image/*">
+      <div class="row" style="align-items:stretch">
+        
+        <!-- Images -->
+        <div class="control-group col">
+            <div class="control-title">Images</div>
+            <div class="row">
+                <div class="file-input-wrapper"><button class="secondary" style="font-size:12px">Up Cover</button><input type="file" id="coverUpload" accept="image/*"></div>
+                <div class="file-input-wrapper"><button class="secondary" style="font-size:12px">Up Content</button><input type="file" id="bgUpload" accept="image/*"></div>
+                <div class="file-input-wrapper"><button class="secondary" style="font-size:12px">Up End</button><input type="file" id="endUpload" accept="image/*"></div>
+                <button id="resetImgs" class="secondary" style="font-size:12px">Reset</button>
+            </div>
         </div>
-        <div class="file-input-wrapper">
-           <button class="secondary">Upload Content BG</button>
-           <input type="file" id="bgUpload" accept="image/*">
+
+        <!-- Cover Customization -->
+        <div class="control-group col" style="flex:1">
+            <div class="control-title">Cover Style</div>
+            <div class="row">
+                <div class="col" style="gap:4px">
+                    <label>Title</label>
+                    <input type="text" id="coverTitleInput" placeholder="Title..." style="width:80px">
+                </div>
+                <div class="col" style="gap:4px">
+                    <label>Font</label>
+                    <select id="coverFontSelect" style="width:90px">
+                        <option value="sans-serif">Sans Serif</option>
+                        <option value="'PingFang SC', sans-serif">PingFang</option>
+                        <option value="'Noto Sans CJK SC', sans-serif">Noto Sans</option>
+                        <option value="'Songti SC', serif">Songti</option>
+                        <option value="'Kaiti SC', cursive">Kaiti</option>
+                    </select>
+                </div>
+                <div class="col" style="gap:4px">
+                    <label>Size</label>
+                    <input type="number" id="coverSize" value="36" style="width:40px">
+                </div>
+                <div class="col" style="gap:4px">
+                    <label>X %</label>
+                    <input type="number" id="coverX" value="50" style="width:40px">
+                </div>
+                <div class="col" style="gap:4px">
+                    <label>Y %</label>
+                    <input type="number" id="coverY" value="50" style="width:40px">
+                </div>
+                <div class="col" style="gap:4px">
+                    <label>Rot °</label>
+                    <input type="number" id="coverRot" value="0" style="width:40px">
+                </div>
+                 <div class="col" style="gap:4px">
+                    <label>Color</label>
+                    <input type="color" id="coverColor" value="#000000" style="width:30px;height:30px;padding:0;border:0">
+                </div>
+            </div>
         </div>
-        <div class="file-input-wrapper">
-           <button class="secondary">Upload Ending BG</button>
-           <input type="file" id="endUpload" accept="image/*">
-        </div>
-        <div class="flex-spacer"></div>
-        <button id="resetImgs" class="secondary" style="font-size:12px">Reset Images</button>
+
       </div>
+      
+      <div style="height:8px"></div>
+      
+      <div class="row" style="align-items:stretch">
+        <!-- Content Page Customization -->
+        <div class="control-group col" style="flex:1">
+             <div class="control-title">Content Style</div>
+             <div class="row">
+                <div class="col" style="gap:4px">
+                    <label>Pad</label>
+                    <input type="number" id="contentPad" value="24" style="width:40px">
+                </div>
+                <div class="col" style="gap:4px">
+                    <label>Pad Color</label>
+                    <input type="color" id="contentPadColor" value="#ffffff" style="width:30px;height:30px;padding:0;border:0">
+                </div>
+                <div class="col" style="gap:4px">
+                    <label>Pad Opacity</label>
+                    <input type="number" id="contentPadOp" value="0" min="0" max="1" step="0.1" style="width:40px">
+                </div>
+                <div class="col" style="gap:4px">
+                    <label>Text Color</label>
+                    <input type="color" id="contentColor" value="#000000" style="width:30px;height:30px;padding:0;border:0">
+                </div>
+                <div class="col" style="gap:4px">
+                    <label>Font</label>
+                    <select id="contentFontSelect" style="width:90px">
+                        <option value="sans-serif">Sans Serif</option>
+                        <option value="'PingFang SC', sans-serif">PingFang</option>
+                        <option value="'Songti SC', serif">Songti</option>
+                    </select>
+                </div>
+             </div>
+        </div>
+
+        <!-- Ending Page Customization -->
+        <div class="control-group col" style="flex:1">
+             <div class="control-title">Ending Style</div>
+             <div class="row">
+                <div class="col" style="gap:4px">
+                    <label>Circle Size</label>
+                    <input type="number" id="endCircleSize" value="160" style="width:50px">
+                </div>
+                <div class="col" style="gap:4px">
+                    <label>Circle Y%</label>
+                    <input type="number" id="endCircleY" value="50" style="width:50px">
+                </div>
+             </div>
+        </div>
+      </div>
+
     </div>
 
     <!-- Output Preview (Slides) -->
@@ -172,16 +260,6 @@
 
     <!-- Input Section -->
     <div class="card">
-      <div class="row" style="margin-bottom:10px">
-        <input type="text" id="coverTitleInput" placeholder="Cover Title (Optional)" style="flex:1">
-        <select id="coverFontSelect">
-             <option value="sans-serif">Sans Serif</option>
-             <option value="serif">Serif</option>
-             <option value="monospace">Mono</option>
-             <option value="cursive">Handwritten</option>
-        </select>
-      </div>
-
       <textarea id="input" placeholder="Paste content here..."></textarea>
       
       <div class="row">
@@ -222,23 +300,56 @@
     const realtimeToggle = $('realtimeToggle');
     const rtWarning = $('rtWarning');
     
-    // Image Inputs
+    // UI Controls
     const coverUpload = $('coverUpload');
     const bgUpload = $('bgUpload');
     const endUpload = $('endUpload');
     const resetImgs = $('resetImgs');
+    
+    // Cover Controls
     const coverTitleInput = $('coverTitleInput');
     const coverFontSelect = $('coverFontSelect');
+    const coverSize = $('coverSize');
+    const coverX = $('coverX');
+    const coverY = $('coverY');
+    const coverRot = $('coverRot');
+    const coverColor = $('coverColor');
+
+    // Content Controls
+    const contentPad = $('contentPad');
+    const contentPadColor = $('contentPadColor');
+    const contentPadOp = $('contentPadOp');
+    const contentColor = $('contentColor');
+    const contentFontSelect = $('contentFontSelect');
+
+    // Ending Controls
+    const endCircleSize = $('endCircleSize');
+    const endCircleY = $('endCircleY');
 
     // State
     const state = {
         coverImg: null,
         contentBg: null,
         endImg: null,
-        coverTitle: '',
+        coverTitle: 'RedNote Title',
         coverFont: 'sans-serif',
+        coverSize: 36,
+        coverX: 50,
+        coverY: 50,
+        coverRot: 0,
+        coverColor: '#000000',
+        
+        contentPad: 24,
+        contentPadColor: '#ffffff',
+        contentPadOp: 0,
+        contentColor: '#000000',
+        contentFont: 'sans-serif',
+
+        endCircleSize: 160,
+        endCircleY: 50,
+
         generatedText: '',
-        slides: [] // Array of text chunks
+        slides: [] 
     };
 
     // Models
@@ -252,14 +363,32 @@
     let debounceTimer = null;
     let lastRunTime = 0;
 
-    // --- UI Logic ---
+    // --- UI Listeners ---
 
-    function setStatus(t, detail=''){ 
-        status.textContent = t; 
-        if(detail) statusDetail.textContent = detail;
+    function bind(el, key, type='value'){
+        el.addEventListener('input', (e)=>{
+            state[key] = type==='number'? parseFloat(e.target.value) : e.target.value;
+            renderSlides();
+        });
     }
-    function setProgress(p){ progress.style.width = Math.max(0,Math.min(100,Math.round(p*100)))+'%' }
-    function showOverlay(show){ overlay.style.display = show ? 'flex' : 'none'; }
+    
+    // Bind all controls
+    bind(coverTitleInput, 'coverTitle');
+    bind(coverFontSelect, 'coverFont');
+    bind(coverSize, 'coverSize', 'number');
+    bind(coverX, 'coverX', 'number');
+    bind(coverY, 'coverY', 'number');
+    bind(coverRot, 'coverRot', 'number');
+    bind(coverColor, 'coverColor');
+    
+    bind(contentPad, 'contentPad', 'number');
+    bind(contentPadColor, 'contentPadColor');
+    bind(contentPadOp, 'contentPadOp', 'number');
+    bind(contentColor, 'contentColor');
+    bind(contentFontSelect, 'contentFont');
+
+    bind(endCircleSize, 'endCircleSize', 'number');
+    bind(endCircleY, 'endCircleY', 'number');
 
     // Image Handling
     function handleImageUpload(e, key){
@@ -283,15 +412,6 @@
         renderSlides();
     });
 
-    coverTitleInput.addEventListener('input', (e)=>{
-        state.coverTitle = e.target.value;
-        renderSlides(); // Optimized: could just update DOM
-    });
-    coverFontSelect.addEventListener('change', (e)=>{
-        state.coverFont = e.target.value;
-        renderSlides();
-    });
-
     // --- Slide Rendering ---
     
     function renderSlides(){
@@ -301,35 +421,61 @@
         const coverWrapper = createSlideWrapper('Cover');
         const coverSlide = createSlideElement();
         if(state.coverImg) setSlideBg(coverSlide, state.coverImg);
-        else coverSlide.style.background = '#e8d6c6'; // Default cover color
+        else coverSlide.style.background = '#e8d6c6';
         
         const coverContent = document.createElement('div');
         coverContent.className = 'slide-content';
-        // Allow vertical text? User asked for direction. Simple toggle? 
-        // For now, center align, big font.
+        
+        // Dynamic Title
         const titleEl = document.createElement('div');
         titleEl.className = 'slide-title';
         titleEl.style.fontFamily = state.coverFont;
-        titleEl.textContent = state.coverTitle || "RedNote Title";
+        titleEl.textContent = state.coverTitle;
+        titleEl.style.fontSize = `${state.coverSize}px`;
+        titleEl.style.color = state.coverColor;
+        titleEl.style.position = 'absolute';
+        titleEl.style.left = `${state.coverX}%`;
+        titleEl.style.top = `${state.coverY}%`;
+        titleEl.style.transform = `translate(-50%, -50%) rotate(${state.coverRot}deg)`;
+        titleEl.style.width = '100%'; // Ensure centering works relative to slide width
+        titleEl.style.textAlign = 'center';
+        titleEl.style.pointerEvents = 'none'; // Click through
+
         coverContent.appendChild(titleEl);
         coverSlide.appendChild(coverContent);
         coverWrapper.appendChild(coverSlide);
         slideContainer.appendChild(coverWrapper);
 
         // 2. Content Slides
-        // If no text, show placeholder slide?
-        const chunks = state.slides.length ? state.slides : (state.generatedText ? [state.generatedText] : []);
-        
-        chunks.forEach((text, idx) => {
+        const chunks = state.slides.length ? state.slides : (state.generatedText ? splitContentToSlides(state.generatedText) : []);
+        // Force at least one empty slide if nothing exists
+        const renderChunks = chunks.length ? chunks : [];
+
+        renderChunks.forEach((text, idx) => {
             const wrapper = createSlideWrapper(`Page ${idx+1}`);
             const slide = createSlideElement();
             if(state.contentBg) setSlideBg(slide, state.contentBg);
             
             const content = document.createElement('div');
             content.className = 'slide-content';
+            content.style.padding = `${state.contentPad}px`;
+            
+            // Padding Background (Overlay)
+            if(state.contentPadOp > 0){
+                 const padBg = document.createElement('div');
+                 padBg.style.position = 'absolute';
+                 padBg.style.inset = `${state.contentPad}px`;
+                 padBg.style.backgroundColor = state.contentPadColor;
+                 padBg.style.opacity = state.contentPadOp;
+                 padBg.style.zIndex = -1;
+                 padBg.style.borderRadius = '4px';
+                 content.appendChild(padBg);
+            }
+
             const textEl = document.createElement('div');
             textEl.className = 'slide-text';
-            // Simple markdown parsing for bold/bullets
+            textEl.style.color = state.contentColor;
+            textEl.style.fontFamily = state.contentFont;
             textEl.innerHTML = parseMarkdown(text); 
             content.appendChild(textEl);
             slide.appendChild(content);
@@ -348,13 +494,41 @@
         const mask = document.createElement('div');
         mask.className = 'ending-mask';
         
+        // Calculate circle and mask
+        // Using radial gradient to create "hole"
+        // center at 50% state.endCircleY%
+        const cy = state.endCircleY;
+        const r = state.endCircleSize / 2;
+        // We need pixel value for radial-gradient if we want exact pixels?
+        // Or we can use `transparent r, black r+1`.
+        // The center position is percentage.
+        // BUT the slide height is fixed in CSS preview as aspect-ratio.
+        // We can approximate or use exact calculation if we assume slide is 320px wide -> height = 320 * 4/3 = 426px.
+        // Let's use `radial-gradient(circle at 50% ${cy}%, transparent ${r}px, rgba(0,0,0,0.9) ${r+1}px)`
+        
+        mask.style.background = `radial-gradient(circle at 50% ${cy}%, transparent ${r}px, rgba(0,0,0,0.9) ${r+1}px)`;
+        
         const circle = document.createElement('div');
         circle.className = 'circle-highlight';
-        mask.appendChild(circle);
+        circle.style.width = `${state.endCircleSize}px`;
+        circle.style.height = `${state.endCircleSize}px`;
+        circle.style.top = `${cy}%`;
 
         const cta = document.createElement('div');
         cta.className = 'cta-box';
         cta.textContent = "Follow for more updates ✓";
+        // Position CTA below circle.
+        // Circle bottom is cy% + r px.
+        // We can just put it at bottom of mask with padding, or relative to circle.
+        // User said "CTA below circle adjust together".
+        // Let's calculate top position for CTA.
+        // Top = cy% + r + 20px (gap)
+        cta.style.position = 'absolute';
+        cta.style.top = `calc(${cy}% + ${r}px + 20px)`;
+        cta.style.left = '50%';
+        cta.style.transform = 'translateX(-50%)';
+
+        mask.appendChild(circle);
         mask.appendChild(cta);
 
         endSlide.appendChild(mask);
@@ -384,7 +558,6 @@
         bg.className = 'slide-bg';
         bg.style.backgroundImage = `url(${src})`;
         el.appendChild(bg);
-        // Add overlay tint
         const ov = document.createElement('div');
         ov.className = 'slide-overlay';
         el.appendChild(ov);
@@ -392,43 +565,50 @@
 
     function parseMarkdown(text){
         if(!text) return '';
+        // Basic parser
         let html = text
-            .replace(/^# (.*$)/gim, '<strong>$1</strong>') // H1 -> Bold
+            .replace(/^# (.*$)/gim, '<strong>$1</strong>')
             .replace(/^## (.*$)/gim, '<strong>$1</strong>')
             .replace(/\*\*(.*)\*\*/gim, '<b>$1</b>')
             .replace(/\n/gim, '<br>');
-        
-        // Handle bullets roughly
-        // If line starts with - or •, wrap in li? 
-        // For simplicity, just replace bullet char with &bull;
         return html;
     }
 
     // --- Content Splitting Logic ---
     function splitContentToSlides(fullText){
-        // Heuristic: Split by double newline (paragraphs) first.
-        // If a paragraph is too long (> 150 chars?), split it.
-        // Goal: ~150-200 chars per slide for "Big Text" feel.
+        // Fixed: Ensure multiple slides are generated.
+        // Previous bug: "chunks" logic might have been flawed or text too short.
+        if(!fullText) return [];
         
-        const rawChunks = fullText.split(/\n\n+/);
+        // Improved splitting:
+        // 1. Split by paragraphs (\n\n)
+        // 2. Accumulate until ~140 chars (conservative for slide visibility)
+        const paragraphs = fullText.split(/\n\n+/);
         const slides = [];
-        let currentSlide = "";
+        let current = "";
         
-        rawChunks.forEach(chunk => {
-            if((currentSlide.length + chunk.length) > 200){
-                if(currentSlide) slides.push(currentSlide.trim());
-                currentSlide = chunk;
+        for(let p of paragraphs){
+            // If paragraph itself is huge, split it by sentences?
+            // For now, simple append.
+            if(current.length + p.length > 180){
+                 if(current) slides.push(current.trim());
+                 current = p;
             } else {
-                currentSlide += "\n\n" + chunk;
+                 current += (current ? "\n\n" : "") + p;
             }
-        });
-        if(currentSlide) slides.push(currentSlide.trim());
+        }
+        if(current) slides.push(current.trim());
         
-        // If a single chunk is massive, force split? (Not implemented for simplicity)
         return slides;
     }
 
     // --- Model Logic ---
+    function setStatus(t, detail=''){ 
+        status.textContent = t; 
+        if(detail) statusDetail.textContent = detail;
+    }
+    function setProgress(p){ progress.style.width = Math.max(0,Math.min(100,Math.round(p*100)))+'%' }
+    function showOverlay(show){ overlay.style.display = show ? 'flex' : 'none'; }
 
     async function loadModel(which){
       const targetModel = which === 'large' ? LARGE_MODEL : SMALL_MODEL;
@@ -489,7 +669,6 @@
     loadLargeBtn.addEventListener('click', () => loadModel('large'));
 
     // --- Realtime & Run ---
-    
     function triggerRealtime() {
         if(!realtimeToggle.checked) return;
         const now = Date.now();
@@ -510,7 +689,6 @@
     input.addEventListener('input', triggerRealtime);
 
     function buildPrompt(userText){
-      // Same prompts as before
       const len = userText.length;
       const base = `You are a RedNote content editor. Task: "Format optimization or summary". Do not expand, fabricate, or add new info. Output in the same language as input. Layout: Subtitles ([] or #), short sentences, bullets (• or -), moderate emojis.`;
       if(len<40) return `${base}\nRule: Short text. Light formatting. ≤60 words.\n\nText:\n${userText}`;
@@ -526,8 +704,6 @@
       isGenerating = true;
       runBtn.disabled=true; 
       
-      // Don't clear slides immediately if realtime? 
-      // Actually yes, clear to show new result.
       state.generatedText = '';
       state.slides = [];
       
@@ -547,15 +723,13 @@
         for await(const chunk of stream){
           const token=chunk.choices?.[0]?.delta?.content||'';
           fullAcc += token;
-          // Live update? 
-          // Updating slides live is tricky because of splitting logic.
-          // Let's update state.generatedText and re-split/render every few tokens or just at end?
-          // For smoothness, maybe just update at end or throttle render.
-          // Let's try updating every 20 chars?
           state.generatedText = fullAcc;
-          // renderSlides(); // This might be too jumpy.
+          // Live rendering every 50 chars to avoid flicker
+          if(fullAcc.length % 50 === 0) {
+             state.slides = splitContentToSlides(fullAcc);
+             renderSlides();
+          }
         }
-        // Final render
         state.slides = splitContentToSlides(state.generatedText);
         renderSlides();
       }catch(e){ 
