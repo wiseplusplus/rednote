@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>本地AI · 小红书改写（无后端）</title>
+  <style>
+    :root{--bg:#f5efe6;--card:#fffaf2;--muted:#8b7e6a;--text:#3a2f24;--accent:#c86a3a;--border:#eadfce}
+    body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,"PingFang SC","Noto Sans CJK SC",sans-serif}
+    .wrap{max-width:980px;margin:28px auto;padding:0 16px}
+    h1{font-size:22px;margin:0 0 12px}
+    .card{background:var(--card);border-radius:16px;padding:14px 14px 12px;border:1px solid var(--border);box-shadow:0 10px 24px rgba(120,90,60,.12)}
+    textarea{width:100%;min-height:220px;background:#fffdf7;border:1px solid var(--border);border-radius:12px;color:var(--text);padding:12px;resize:vertical}
+    textarea:disabled{opacity:.6}
+    .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:10px}
+    button{background:var(--accent);border:0;border-radius:12px;color:white;padding:10px 14px;font-weight:600;cursor:pointer}
+    button.secondary{background:#e8d6c6;color:#4b3a2c}
+    button:disabled{opacity:.5;cursor:not-allowed}
+    .muted{color:var(--muted);font-size:12px}
+    .out{white-space:pre-wrap;line-height:1.7;background:#fffdf7;border:1px solid var(--border);border-radius:12px;padding:14px;min-height:240px}
+    .out.disabled{opacity:.6}
+    .badge{background:#f1e6d9;border:1px solid var(--border);border-radius:999px;padding:4px 8px;font-size:12px}
+    .status{font-size:12px}
+    .bar{height:8px;background:#efe4d6;border-radius:999px;overflow:hidden;border:1px solid var(--border)}
+    .bar>div{height:100%;width:0;background:linear-gradient(90deg,#e3b18f,#c86a3a)}
+    .overlay{position:absolute;inset:0;background:rgba(255,250,242,.7);border-radius:16px;display:flex;align-items:center;justify-content:center;gap:10px;flex-direction:column}
+    .rel{position:relative}
+    select{border:1px solid var(--border);border-radius:10px;padding:8px;background:#fffdf7}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>本地 AI 小红书改写（浏览器推理 · 无服务器）</h1>
+    <div class="card rel" id="panel">
+      <div class="overlay" id="overlay">
+        <div class="status" id="status">正在初始化模型…</div>
+        <div class="bar" style="width:70%"><div id="progress"></div></div>
+        <div class="muted">首次进入会自动下载小模型；完成前暂不可使用</div>
+      </div>
+      <textarea id="input" placeholder="粘贴任意内容（最多 10000 字）…" disabled></textarea>
+      <div class="row">
+        <button id="run" disabled>开始改写</button>
+        <span class="badge" id="modelTag">模型：未就绪</span>
+        <select id="modelSelect" title="选择模型大小">
+          <option value="small">小模型（更快）</option>
+          <option value="large">大模型（更好）</option>
+        </select>
+        <button class="secondary" id="loadLarge">加载更大模型</button>
+      </div>
+      <div class="muted">规则：≤3000字优化排版；＞3000字摘要≤200字；过短文本仅轻度格式化。</div>
+    </div>
+    <div style="height:12px"></div>
+    <div class="card">
+      <div class="out disabled" id="output"></div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { CreateMLCEngine } from 'https://esm.run/@mlc-ai/web-llm';
+
+    const $ = (id)=>document.getElementById(id);
+    const input = $('input');
+    const output = $('output');
+    const status = $('status');
+    const runBtn = $('run');
+    const modelTag = $('modelTag');
+    const progress = $('progress');
+    const overlay = $('overlay');
+    const modelSelect = $('modelSelect');
+    const loadLarge = $('loadLarge');
+
+    // 小模型默认（更快）
+    const SMALL_MODEL = 'Qwen2-0.5B-Instruct-q4f16_1-MLC';
+    // 大模型可选（更好）
+    const LARGE_MODEL = 'Phi-3.5-mini-instruct-q4f16_1-MLC';
+
+    let engine;
+    let currentModel = SMALL_MODEL;
+
+    function setStatus(t){ status.textContent = t }
+    function setProgress(p){ progress.style.width = Math.max(0,Math.min(100,Math.round(p*100)))+'%' }
+
+    async function loadModel(which){
+      currentModel = which==='large'?LARGE_MODEL:SMALL_MODEL;
+      overlay.style.display='flex';
+      input.disabled = true; runBtn.disabled = true; output.classList.add('disabled');
+      setStatus('加载模型中…'); setProgress(0);
+      try{
+        engine = await CreateMLCEngine(currentModel,{
+          initProgressCallback:(p)=>{
+            setStatus(`加载模型 ${Math.round(p.progress*100)}% · ${p.text||''}`);
+            setProgress(p.progress);
+          }
+        });
+        modelTag.textContent = `模型：${currentModel}`;
+        overlay.style.display='none';
+        input.disabled=false; runBtn.disabled=false; output.classList.remove('disabled');
+        setStatus('就绪 ✓');
+      }catch(e){
+        console.error(e);
+        setStatus('模型加载失败：'+e.message);
+      }
+    }
+
+    function buildPrompt(userText){
+      const len = userText.length;
+      const tooLong = len>3000;
+      const tooShort = len<40;
+
+      const base = `你是小红书内容编辑。只做“格式优化或摘要”，不扩写、不编造、不增加信息。严格中文输出。排版使用：小标题（【】或#）、短句、bullet（•或-）、适度emoji（每节1个以内）。`;
+
+      if(tooShort){
+        return `${base}\n额外规则：文本很短，只做轻度格式化，不要扩写，控制在一小段内（≤60字），可加一个小标题与1~2个bullet。\n\n原文：\n${userText}`;
+      }
+      if(tooLong){
+        return `${base}\n额外规则：文本较长，先理解要点，生成≤200字摘要；保持清晰分段与bullet；保留可操作结论；不要超过200字。\n\n原文：\n${userText}`;
+      }
+      return `${base}\n额外规则：保留信息与逻辑，重写为更清晰的短句，2~4个小节，每节2~4行，并配要点列表。\n\n原文：\n${userText}`;
+    }
+
+    async function run(){
+      const text = input.value.trim();
+      if(!text) return;
+      if(text.length>10000){ alert('超过10000字限制'); return; }
+      runBtn.disabled=true; output.textContent=''; setStatus('生成中…');
+
+      const messages=[
+        {role:'system',content:'你是高质量中文编辑助手。'},
+        {role:'user',content:buildPrompt(text)}
+      ];
+      try{
+        const stream=await engine.chat.completions.create({messages,temperature:0.4,stream:true,max_tokens:600});
+        for await(const chunk of stream){
+          const token=chunk.choices?.[0]?.delta?.content||'';
+          output.textContent+=token;
+        }
+        setStatus('完成 ✓');
+      }catch(e){ console.error(e); setStatus('生成失败：'+e.message);}finally{ runBtn.disabled=false; }
+    }
+
+    runBtn.addEventListener('click',run);
+    modelSelect.addEventListener('change',()=>loadModel(modelSelect.value));
+    loadLarge.addEventListener('click',()=>{ modelSelect.value='large'; loadModel('large'); });
+
+    // 进入即自动加载小模型
+    loadModel('small');
+  </script>
+</body>
+</html>
