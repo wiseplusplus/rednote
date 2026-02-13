@@ -209,15 +209,7 @@
     });
 
     // Real-time Logic
-    realtimeToggle.addEventListener('change', () => {
-        const on = realtimeToggle.checked;
-        rtWarning.classList.toggle('hidden', !on);
-        if(!on){
-            clearTimeout(debounceTimer);
-        }
-    });
-
-    input.addEventListener('input', () => {
+    function triggerRealtime() {
         if(!realtimeToggle.checked) return;
         
         const now = Date.now();
@@ -231,7 +223,22 @@
              // Debounce 3s
              debounceTimer = setTimeout(run, 3000);
         }
+    }
+
+    realtimeToggle.addEventListener('change', () => {
+        const on = realtimeToggle.checked;
+        rtWarning.classList.toggle('hidden', !on);
+        if(!on){
+            clearTimeout(debounceTimer);
+        } else {
+            // If turned on and text exists, trigger logic
+            if(input.value.trim()){
+                triggerRealtime();
+            }
+        }
     });
+
+    input.addEventListener('input', triggerRealtime);
 
     function buildPrompt(userText){
       const len = userText.length;
