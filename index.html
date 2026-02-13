@@ -460,16 +460,36 @@
             content.className = 'slide-content';
             content.style.padding = `${state.contentPad}px`;
             
-            // Padding Background (Overlay)
+            // Padding Background (Frame/Border effect)
             if(state.contentPadOp > 0){
                  const padBg = document.createElement('div');
                  padBg.style.position = 'absolute';
-                 padBg.style.inset = `${state.contentPad}px`;
-                 padBg.style.backgroundColor = state.contentPadColor;
+                 padBg.style.inset = '0'; // Cover entire slide
+                 padBg.style.border = `${state.contentPad}px solid ${state.contentPadColor}`;
+                 padBg.style.background = 'transparent'; // Center is clear
                  padBg.style.opacity = state.contentPadOp;
-                 padBg.style.zIndex = -1;
-                 padBg.style.borderRadius = '4px';
-                 content.appendChild(padBg);
+                 padBg.style.zIndex = 1; // On top of bg, below text? No, text is z-index 2.
+                 // We need this to be below text but above bg.
+                 // content is z-index 2.
+                 // This padBg is appended to content.
+                 // So it will be inside content.
+                 // content has padding.
+                 // If content has padding, and padBg is absolute inset 0 relative to content...
+                 // content width = 100%.
+                 // padBg will cover the content area.
+                 // We want padBg to cover the SLIDE.
+                 // Append padBg to SLIDE, not CONTENT.
+                 // slide is relative.
+                 padBg.style.zIndex = 1; 
+                 padBg.style.pointerEvents = 'none';
+                 padBg.style.boxSizing = 'border-box';
+                 
+                 // Note: "content" has z-index 2. We want padBg to be visible.
+                 // If padBg is z-index 1, it's under content.
+                 // Content has text. Text is what we see.
+                 // The "padding area" of content is empty space.
+                 // So z-index 1 is fine.
+                 slide.insertBefore(padBg, content);
             }
 
             const textEl = document.createElement('div');
@@ -576,25 +596,24 @@
 
     // --- Content Splitting Logic ---
     function splitContentToSlides(fullText){
-        // Fixed: Ensure multiple slides are generated.
-        // Previous bug: "chunks" logic might have been flawed or text too short.
         if(!fullText) return [];
         
-        // Improved splitting:
-        // 1. Split by paragraphs (\n\n)
-        // 2. Accumulate until ~140 chars (conservative for slide visibility)
-        const paragraphs = fullText.split(/\n\n+/);
+        // Improved splitting for mobile-focused slides (RedNote style)
+        // Split by lines to ensure granular control
+        const lines = fullText.split(/\n/);
         const slides = [];
         let current = "";
+        const CHAR_LIMIT = 120; // Aggressive limit for big text/mobile view
         
-        for(let p of paragraphs){
-            // If paragraph itself is huge, split it by sentences?
-            // For now, simple append.
-            if(current.length + p.length > 180){
-                 if(current) slides.push(current.trim());
-                 current = p;
+        for(let line of lines){
+            // If adding this line exceeds limit, push current and start new
+            // But if current is empty, just take the line (even if huge)
+            if(current.length > 0 && (current.length + line.length > CHAR_LIMIT)){
+                 slides.push(current.trim());
+                 current = line;
             } else {
-                 current += (current ? "\n\n" : "") + p;
+                 // Preserve original spacing
+                 current += (current ? "\n" : "") + line;
             }
         }
         if(current) slides.push(current.trim());
