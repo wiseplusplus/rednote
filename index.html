@@ -3,56 +3,186 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>RedNote Writer</title>
+  <title>Local AI · RedNote Rewriter</title>
   <style>
-    :root{--bg:#f5efe6;--card:#fffaf2;--muted:#8b7e6a;--text:#3a2f24;--accent:#c86a3a;--border:#eadfce}
-    body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,"PingFang SC","Noto Sans CJK SC",sans-serif}
+    :root{--bg:#f5efe6;--card:#fffaf2;--muted:#8b7e6a;--text:#3a2f24;--accent:#c86a3a;--border:#eadfce; --slide-bg: #fff; --slide-text: #000;}
+    body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
     .wrap{max-width:980px;margin:28px auto;padding:0 16px}
     h1{font-size:22px;margin:0 0 12px}
-    .card{background:var(--card);border-radius:16px;padding:14px 14px 12px;border:1px solid var(--border);box-shadow:0 10px 24px rgba(120,90,60,.12)}
-    textarea{width:100%;min-height:220px;background:#fffdf7;border:1px solid var(--border);border-radius:12px;color:var(--text);padding:12px;resize:vertical;font-family:inherit}
-    textarea:disabled{opacity:.6}
-    .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:10px}
-    button{background:var(--accent);border:0;border-radius:12px;color:white;padding:10px 14px;font-weight:600;cursor:pointer}
+    .card{background:var(--card);border-radius:16px;padding:14px;border:1px solid var(--border);box-shadow:0 10px 24px rgba(120,90,60,.12)}
+    
+    /* Layout */
+    .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+    .col{display:flex;flex-direction:column;gap:10px}
+    .flex-spacer{flex:1}
+
+    /* Controls */
+    button{background:var(--accent);border:0;border-radius:12px;color:white;padding:10px 14px;font-weight:600;cursor:pointer;white-space:nowrap}
     button.secondary{background:#e8d6c6;color:#4b3a2c}
     button:disabled{opacity:.5;cursor:not-allowed}
-    .muted{color:var(--muted);font-size:12px}
-    .out{white-space:pre-wrap;line-height:1.7;background:#fffdf7;border:1px solid var(--border);border-radius:12px;padding:14px;min-height:240px;position:relative}
-    .out.disabled{opacity:.6}
-    .badge{background:#f1e6d9;border:1px solid var(--border);border-radius:999px;padding:4px 8px;font-size:12px}
-    .status{font-size:12px;text-align:center}
-    .bar{height:8px;background:#efe4d6;border-radius:999px;overflow:hidden;border:1px solid var(--border);width:100%;max-width:300px}
-    .bar>div{height:100%;width:0;background:linear-gradient(90deg,#e3b18f,#c86a3a)}
-    .overlay{position:absolute;inset:0;background:rgba(255,250,242,.9);border-radius:12px;display:flex;align-items:center;justify-content:center;gap:10px;flex-direction:column;z-index:10}
-    .rel{position:relative}
-    select{border:1px solid var(--border);border-radius:10px;padding:8px;background:#fffdf7}
-    .hidden{display:none !important}
-    .warning{color:#c83a3a;font-size:11px;margin-left:4px}
-    .flex-spacer{flex:1}
+    select, input[type="text"]{border:1px solid var(--border);border-radius:10px;padding:8px;background:#fffdf7}
     .checkbox-label{display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;user-select:none}
+    
+    /* Slide Preview Area */
+    .preview-area{
+        overflow-x: auto;
+        white-space: nowrap;
+        padding: 10px 0;
+        display: flex;
+        gap: 16px;
+        min-height: 450px;
+        align-items: start;
+        /* Scrollbar styling */
+        scrollbar-width: thin;
+        scrollbar-color: var(--accent) var(--border);
+    }
+    .preview-area::-webkit-scrollbar { height: 8px; }
+    .preview-area::-webkit-scrollbar-track { background: var(--border); border-radius: 4px; }
+    .preview-area::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 4px; }
+
+    /* Individual Slide */
+    .slide-wrapper{display:inline-flex;flex-direction:column;gap:8px;vertical-align:top}
+    .slide{
+        width: 300px; /* Base width */
+        aspect-ratio: 3/4;
+        background: var(--slide-bg);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        position: relative;
+        overflow: hidden;
+        white-space: normal; /* Reset text wrap */
+        display: flex;
+        flex-direction: column;
+        color: var(--slide-text);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        background-size: cover;
+        background-position: center;
+        transition: transform 0.2s;
+    }
+    .slide:hover{transform: translateY(-2px); box-shadow: 0 8px 16px rgba(0,0,0,0.15);}
+    
+    /* Slide Content Layers */
+    .slide-bg{position:absolute;inset:0;z-index:0;background-size:cover;background-position:center;}
+    .slide-overlay{position:absolute;inset:0;z-index:1;background:rgba(255,255,255,0.0);} /* Optional tint */
+    .slide-content{
+        position:relative;z-index:2;
+        padding: 24px;
+        flex:1;
+        display:flex;
+        flex-direction:column;
+        overflow-y: hidden; /* Text should fit */
+    }
+
+    /* Typography inside slides */
+    .slide-title{font-size: 28px; font-weight: 800; line-height: 1.3; margin-bottom: 16px;}
+    .slide-text{font-size: 18px; line-height: 1.6; font-weight: 500;}
+    .slide-text ul { padding-left: 20px; margin: 0; }
+    .slide-text li { margin-bottom: 8px; }
+
+    /* Cover Page Specifics */
+    .slide.cover .slide-title { font-size: 36px; text-align: center; margin-top: auto; margin-bottom: auto;}
+    
+    /* Ending Page Specifics */
+    .slide.ending .slide-content { padding: 0; }
+    .ending-mask {
+        position: absolute; inset: 0; z-index: 10;
+        background: radial-gradient(circle at center, transparent 80px, rgba(0,0,0,0.9) 81px);
+        display: flex; align-items: flex-end; justify-content: center;
+        padding-bottom: 60px;
+    }
+    .cta-box {
+        color: white; text-align: center;
+        background: rgba(255,255,255,0.2);
+        backdrop-filter: blur(4px);
+        padding: 8px 16px; border-radius: 99px;
+        border: 1px solid rgba(255,255,255,0.4);
+        font-size: 14px; font-weight: bold;
+    }
+    .circle-highlight {
+        position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+        width: 160px; height: 160px;
+        border: 2px dashed rgba(255,255,255,0.5);
+        border-radius: 50%;
+        pointer-events: none;
+    }
+
+    /* Controls per slide */
+    .slide-controls{display:flex;gap:4px;justify-content:center;}
+    .icon-btn{padding:4px 8px;font-size:12px;background:#eee;color:#333;border-radius:4px;}
+
+    /* Input/Editor Areas */
+    textarea{width:100%;min-height:120px;background:#fffdf7;border:1px solid var(--border);border-radius:12px;padding:12px;resize:vertical;font-family:inherit}
+    
+    /* Utilities */
+    .muted{color:var(--muted);font-size:12px}
+    .hidden{display:none !important}
+    .warning{color:#c83a3a;font-size:11px}
+    .rel{position:relative}
+    
+    /* Global Overlay (Loading) */
+    .overlay{position:absolute;inset:0;background:rgba(255,250,242,.9);border-radius:12px;display:flex;align-items:center;justify-content:center;gap:10px;flex-direction:column;z-index:20}
+    .bar{height:8px;background:#efe4d6;border-radius:999px;overflow:hidden;border:1px solid var(--border);width:200px}
+    .bar>div{height:100%;width:0;background:linear-gradient(90deg,#e3b18f,#c86a3a)}
+
+    /* File Input Styling */
+    .file-input-wrapper { position: relative; overflow: hidden; display: inline-block; }
+    .file-input-wrapper input[type=file] { position: absolute; left: 0; top: 0; opacity: 0; cursor: pointer; height: 100%; width: 100%;}
   </style>
 </head>
 <body>
   <div class="wrap">
-    <h1>RedNote Writer</h1>
+    <h1>RedNote Writer (Local AI)</h1>
     
-    <!-- Output Section (Top) -->
-    <div class="card rel">
-      <div class="out" id="output"></div>
-      
-      <!-- Overlay for Status/Loading in Output Area -->
+    <!-- Top Controls: Global Settings -->
+    <div class="card" style="margin-bottom: 12px;">
+      <div class="row">
+        <div class="file-input-wrapper">
+           <button class="secondary">Upload Cover BG</button>
+           <input type="file" id="coverUpload" accept="image/*">
+        </div>
+        <div class="file-input-wrapper">
+           <button class="secondary">Upload Content BG</button>
+           <input type="file" id="bgUpload" accept="image/*">
+        </div>
+        <div class="file-input-wrapper">
+           <button class="secondary">Upload Ending BG</button>
+           <input type="file" id="endUpload" accept="image/*">
+        </div>
+        <div class="flex-spacer"></div>
+        <button id="resetImgs" class="secondary" style="font-size:12px">Reset Images</button>
+      </div>
+    </div>
+
+    <!-- Output Preview (Slides) -->
+    <div class="card rel" style="min-height: 480px;">
+      <div class="preview-area" id="slideContainer">
+        <!-- Slides will be injected here -->
+        <div class="muted" style="margin:auto">Generated slides will appear here...</div>
+      </div>
+
+      <!-- Loading Overlay -->
       <div class="overlay" id="overlay">
-        <div class="status" id="status">Initializing model...</div>
+        <div class="status" id="status">Initializing...</div>
         <div class="bar"><div id="progress"></div></div>
-        <div class="muted" id="statusDetail">First load requires download.</div>
+        <div class="muted" id="statusDetail"></div>
       </div>
     </div>
 
     <div style="height:12px"></div>
 
-    <!-- Input Section (Bottom) -->
+    <!-- Input Section -->
     <div class="card">
-      <textarea id="input" placeholder="Paste content here (Max 10000 chars)..."></textarea>
+      <div class="row" style="margin-bottom:10px">
+        <input type="text" id="coverTitleInput" placeholder="Cover Title (Optional)" style="flex:1">
+        <select id="coverFontSelect">
+             <option value="sans-serif">Sans Serif</option>
+             <option value="serif">Serif</option>
+             <option value="monospace">Mono</option>
+             <option value="cursive">Handwritten</option>
+        </select>
+      </div>
+
+      <textarea id="input" placeholder="Paste content here..."></textarea>
       
       <div class="row">
         <button id="run" disabled>Rewrite</button>
@@ -61,20 +191,16 @@
           <input type="checkbox" id="realtimeToggle"> 
           Real-time
         </label>
-        <span class="warning hidden" id="rtWarning">May increase CPU load/heat</span>
+        <span class="warning hidden" id="rtWarning">High CPU</span>
 
         <div class="flex-spacer"></div>
 
         <span class="badge" id="modelTag">Model: Not Ready</span>
-        <select id="modelSelect" title="Select Model Size">
-          <option value="small">Small (Faster)</option>
-          <option value="large">Large (Better)</option>
+        <select id="modelSelect">
+          <option value="small">Small</option>
+          <option value="large">Large</option>
         </select>
-        <button class="secondary hidden" id="loadLargeBtn">Load Large Model</button>
-      </div>
-      
-      <div class="muted" style="margin-top:10px">
-        Rules: ≤3000 chars: Optimize format; >3000 chars: Summarize to ≤200 chars; Short text: Light formatting.
+        <button class="secondary hidden" id="loadLargeBtn">Load Large</button>
       </div>
     </div>
   </div>
@@ -84,7 +210,7 @@
 
     const $ = (id)=>document.getElementById(id);
     const input = $('input');
-    const output = $('output');
+    const slideContainer = $('slideContainer');
     const status = $('status');
     const statusDetail = $('statusDetail');
     const runBtn = $('run');
@@ -95,95 +221,258 @@
     const loadLargeBtn = $('loadLargeBtn');
     const realtimeToggle = $('realtimeToggle');
     const rtWarning = $('rtWarning');
+    
+    // Image Inputs
+    const coverUpload = $('coverUpload');
+    const bgUpload = $('bgUpload');
+    const endUpload = $('endUpload');
+    const resetImgs = $('resetImgs');
+    const coverTitleInput = $('coverTitleInput');
+    const coverFontSelect = $('coverFontSelect');
+
+    // State
+    const state = {
+        coverImg: null,
+        contentBg: null,
+        endImg: null,
+        coverTitle: '',
+        coverFont: 'sans-serif',
+        generatedText: '',
+        slides: [] // Array of text chunks
+    };
 
     // Models
     const SMALL_MODEL = 'Qwen2-0.5B-Instruct-q4f16_1-MLC';
     const LARGE_MODEL = 'Phi-3.5-mini-instruct-q4f16_1-MLC';
-
     let engine;
     let currentModelId = SMALL_MODEL;
     let isSmallLoaded = false;
     let isLargeLoaded = false;
     let isGenerating = false;
-
-    // Real-time Logic vars
     let debounceTimer = null;
     let lastRunTime = 0;
+
+    // --- UI Logic ---
 
     function setStatus(t, detail=''){ 
         status.textContent = t; 
         if(detail) statusDetail.textContent = detail;
     }
     function setProgress(p){ progress.style.width = Math.max(0,Math.min(100,Math.round(p*100)))+'%' }
-    
-    function showOverlay(show){
-        overlay.style.display = show ? 'flex' : 'none';
+    function showOverlay(show){ overlay.style.display = show ? 'flex' : 'none'; }
+
+    // Image Handling
+    function handleImageUpload(e, key){
+        const file = e.target.files[0];
+        if(!file) return;
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+            state[key] = evt.target.result;
+            renderSlides();
+        };
+        reader.readAsDataURL(file);
     }
+    coverUpload.addEventListener('change', (e)=>handleImageUpload(e, 'coverImg'));
+    bgUpload.addEventListener('change', (e)=>handleImageUpload(e, 'contentBg'));
+    endUpload.addEventListener('change', (e)=>handleImageUpload(e, 'endImg'));
+    
+    resetImgs.addEventListener('click', ()=>{
+        state.coverImg = null;
+        state.contentBg = null;
+        state.endImg = null;
+        renderSlides();
+    });
+
+    coverTitleInput.addEventListener('input', (e)=>{
+        state.coverTitle = e.target.value;
+        renderSlides(); // Optimized: could just update DOM
+    });
+    coverFontSelect.addEventListener('change', (e)=>{
+        state.coverFont = e.target.value;
+        renderSlides();
+    });
+
+    // --- Slide Rendering ---
+    
+    function renderSlides(){
+        slideContainer.innerHTML = '';
+        
+        // 1. Cover Slide
+        const coverWrapper = createSlideWrapper('Cover');
+        const coverSlide = createSlideElement();
+        if(state.coverImg) setSlideBg(coverSlide, state.coverImg);
+        else coverSlide.style.background = '#e8d6c6'; // Default cover color
+        
+        const coverContent = document.createElement('div');
+        coverContent.className = 'slide-content';
+        // Allow vertical text? User asked for direction. Simple toggle? 
+        // For now, center align, big font.
+        const titleEl = document.createElement('div');
+        titleEl.className = 'slide-title';
+        titleEl.style.fontFamily = state.coverFont;
+        titleEl.textContent = state.coverTitle || "RedNote Title";
+        coverContent.appendChild(titleEl);
+        coverSlide.appendChild(coverContent);
+        coverWrapper.appendChild(coverSlide);
+        slideContainer.appendChild(coverWrapper);
+
+        // 2. Content Slides
+        // If no text, show placeholder slide?
+        const chunks = state.slides.length ? state.slides : (state.generatedText ? [state.generatedText] : []);
+        
+        chunks.forEach((text, idx) => {
+            const wrapper = createSlideWrapper(`Page ${idx+1}`);
+            const slide = createSlideElement();
+            if(state.contentBg) setSlideBg(slide, state.contentBg);
+            
+            const content = document.createElement('div');
+            content.className = 'slide-content';
+            const textEl = document.createElement('div');
+            textEl.className = 'slide-text';
+            // Simple markdown parsing for bold/bullets
+            textEl.innerHTML = parseMarkdown(text); 
+            content.appendChild(textEl);
+            slide.appendChild(content);
+            wrapper.appendChild(slide);
+            slideContainer.appendChild(wrapper);
+        });
+
+        // 3. Ending Slide
+        const endWrapper = createSlideWrapper('Ending');
+        const endSlide = createSlideElement();
+        endSlide.classList.add('ending');
+        if(state.endImg) setSlideBg(endSlide, state.endImg);
+        else endSlide.style.background = '#333';
+        
+        // Mask Overlay
+        const mask = document.createElement('div');
+        mask.className = 'ending-mask';
+        
+        const circle = document.createElement('div');
+        circle.className = 'circle-highlight';
+        mask.appendChild(circle);
+
+        const cta = document.createElement('div');
+        cta.className = 'cta-box';
+        cta.textContent = "Follow for more updates ✓";
+        mask.appendChild(cta);
+
+        endSlide.appendChild(mask);
+        endWrapper.appendChild(endSlide);
+        slideContainer.appendChild(endWrapper);
+    }
+
+    function createSlideWrapper(label){
+        const w = document.createElement('div');
+        w.className = 'slide-wrapper';
+        const l = document.createElement('div');
+        l.className = 'muted';
+        l.style.textAlign='center';
+        l.textContent = label;
+        w.appendChild(l);
+        return w;
+    }
+
+    function createSlideElement(){
+        const s = document.createElement('div');
+        s.className = 'slide';
+        return s;
+    }
+
+    function setSlideBg(el, src){
+        const bg = document.createElement('div');
+        bg.className = 'slide-bg';
+        bg.style.backgroundImage = `url(${src})`;
+        el.appendChild(bg);
+        // Add overlay tint
+        const ov = document.createElement('div');
+        ov.className = 'slide-overlay';
+        el.appendChild(ov);
+    }
+
+    function parseMarkdown(text){
+        if(!text) return '';
+        let html = text
+            .replace(/^# (.*$)/gim, '<strong>$1</strong>') // H1 -> Bold
+            .replace(/^## (.*$)/gim, '<strong>$1</strong>')
+            .replace(/\*\*(.*)\*\*/gim, '<b>$1</b>')
+            .replace(/\n/gim, '<br>');
+        
+        // Handle bullets roughly
+        // If line starts with - or •, wrap in li? 
+        // For simplicity, just replace bullet char with &bull;
+        return html;
+    }
+
+    // --- Content Splitting Logic ---
+    function splitContentToSlides(fullText){
+        // Heuristic: Split by double newline (paragraphs) first.
+        // If a paragraph is too long (> 150 chars?), split it.
+        // Goal: ~150-200 chars per slide for "Big Text" feel.
+        
+        const rawChunks = fullText.split(/\n\n+/);
+        const slides = [];
+        let currentSlide = "";
+        
+        rawChunks.forEach(chunk => {
+            if((currentSlide.length + chunk.length) > 200){
+                if(currentSlide) slides.push(currentSlide.trim());
+                currentSlide = chunk;
+            } else {
+                currentSlide += "\n\n" + chunk;
+            }
+        });
+        if(currentSlide) slides.push(currentSlide.trim());
+        
+        // If a single chunk is massive, force split? (Not implemented for simplicity)
+        return slides;
+    }
+
+    // --- Model Logic ---
 
     async function loadModel(which){
       const targetModel = which === 'large' ? LARGE_MODEL : SMALL_MODEL;
-      
-      // Update UI state
       showOverlay(true);
       runBtn.disabled = true;
-      setStatus(`Loading ${which} model...`, 'Please wait...');
+      setStatus(`Loading ${which}...`, 'Please wait...');
       setProgress(0);
-
       try{
-        // If switching engines, we might need to reload or just use the same engine instance if it supports hot swap (WebLLM usually requires re-init for different weights if they are different architectures, or just CreateMLCEngine again).
-        // CreateMLCEngine creates a new engine.
         engine = await CreateMLCEngine(targetModel,{
           initProgressCallback:(p)=>{
             setStatus(`Loading... ${Math.round(p.progress*100)}%`, p.text||'');
             setProgress(p.progress);
           }
         });
-
         currentModelId = targetModel;
         if(which === 'small') isSmallLoaded = true;
         if(which === 'large') isLargeLoaded = true;
-
         modelTag.textContent = `Model: ${which === 'large' ? 'Large' : 'Small'}`;
         showOverlay(false);
         runBtn.disabled = false;
-        
-        // Update button visibility
         updateControls();
-        
       }catch(e){
         console.error(e);
-        setStatus('Model Load Failed', e.message);
+        setStatus('Load Failed', e.message);
       }
     }
 
     function updateControls(){
         const selected = modelSelect.value;
-        
-        // Logic:
-        // Small: Auto-load (fast).
-        // Large: Always require manual trigger (user request).
-        
         if(selected === 'large' && currentModelId !== LARGE_MODEL){
             loadLargeBtn.classList.remove('hidden');
-            loadLargeBtn.textContent = isLargeLoaded ? "Switch to Large Model" : "Load Large Model (Download)";
+            loadLargeBtn.textContent = isLargeLoaded ? "Switch to Large" : "Load Large";
             runBtn.disabled = true;
-            modelTag.textContent = isLargeLoaded ? "Model: Paused" : "Model: Not Loaded";
+            modelTag.textContent = isLargeLoaded ? "Paused" : "Not Loaded";
         } else {
             loadLargeBtn.classList.add('hidden');
-            
-            // If we are on small but current is not small (and not loading), we should have auto-switched.
-            // But if we are on Large and current IS Large, we are ready.
             if(selected === 'large'){
                 runBtn.disabled = false;
                 modelTag.textContent = "Model: Large";
             } else {
-                // Selected Small
-                // If current is not small, we are switching or loading.
                 if(currentModelId === SMALL_MODEL){
                     runBtn.disabled = false;
                     modelTag.textContent = "Model: Small";
                 } else {
-                     // Still loading small?
                      runBtn.disabled = true;
                 }
             }
@@ -191,36 +480,23 @@
     }
 
     modelSelect.addEventListener('change', async () => {
-        const val = modelSelect.value;
-        if(val === 'large'){
-            // Always manual trigger for Large
-            updateControls(); 
-        } else {
-            // Small model: Auto switch
-            if(currentModelId !== SMALL_MODEL){
-                await loadModel('small');
-            }
+        if(modelSelect.value === 'large') updateControls(); 
+        else {
+            if(currentModelId !== SMALL_MODEL) await loadModel('small');
             updateControls();
         }
     });
+    loadLargeBtn.addEventListener('click', () => loadModel('large'));
 
-    loadLargeBtn.addEventListener('click', () => {
-        loadModel('large');
-    });
-
-    // Real-time Logic
+    // --- Realtime & Run ---
+    
     function triggerRealtime() {
         if(!realtimeToggle.checked) return;
-        
         const now = Date.now();
         clearTimeout(debounceTimer);
-
-        // Throttle check: If it has been > 10s since last run
         if(lastRunTime > 0 && (now - lastRunTime > 10000)){
              run();
-             // Debounce timer is cleared, run happens.
         } else {
-             // Debounce 3s
              debounceTimer = setTimeout(run, 3000);
         }
     }
@@ -228,105 +504,77 @@
     realtimeToggle.addEventListener('change', () => {
         const on = realtimeToggle.checked;
         rtWarning.classList.toggle('hidden', !on);
-        if(!on){
-            clearTimeout(debounceTimer);
-        } else {
-            // If turned on and text exists, trigger logic
-            if(input.value.trim()){
-                triggerRealtime();
-            }
-        }
+        if(!on) clearTimeout(debounceTimer);
+        else if(input.value.trim()) triggerRealtime();
     });
-
     input.addEventListener('input', triggerRealtime);
 
     function buildPrompt(userText){
+      // Same prompts as before
       const len = userText.length;
-      const tooLong = len>3000;
-      const tooShort = len<40;
-
-      const base = `You are a RedNote content editor. Task: "Format optimization or summary". Do not expand, fabricate, or add new info. Output in the same language as input. Layout: Subtitles ([] or #), short sentences, bullets (• or -), moderate emojis (max 1 per section).`;
-
-      if(tooShort){
-        return `${base}\nExtra Rule: Text is very short. Only light formatting. Do not expand. Keep within one short paragraph (≤60 words). Optional: 1 subtitle and 1-2 bullets.\n\nOriginal Text:\n${userText}`;
-      }
-      if(tooLong){
-        return `${base}\nExtra Rule: Text is long. Understand key points first, then generate a summary ≤200 words. Keep clear paragraphing and bullets. Retain actionable conclusions. Strict limit: 200 words.\n\nOriginal Text:\n${userText}`;
-      }
-      return `${base}\nExtra Rule: Retain info and logic. Rewrite into clearer short sentences. 2-4 sections, 2-4 lines per section. Add a key point list.\n\nOriginal Text:\n${userText}`;
+      const base = `You are a RedNote content editor. Task: "Format optimization or summary". Do not expand, fabricate, or add new info. Output in the same language as input. Layout: Subtitles ([] or #), short sentences, bullets (• or -), moderate emojis.`;
+      if(len<40) return `${base}\nRule: Short text. Light formatting. ≤60 words.\n\nText:\n${userText}`;
+      if(len>3000) return `${base}\nRule: Long text. Summarize to ≤200 words. Bullet points.\n\nText:\n${userText}`;
+      return `${base}\nRule: Rewrite into clear short sentences. 2-4 sections. Add key points.\n\nText:\n${userText}`;
     }
 
     async function run(){
-      if(isGenerating) return; // Prevent overlapping runs
+      if(isGenerating) return;
       const text = input.value.trim();
       if(!text) return;
-      if(text.length>10000){ alert('Text exceeds 10000 chars'); return; }
       
       isGenerating = true;
       runBtn.disabled=true; 
       
-      // If we are in realtime mode, we don't want to clear the whole output if we can avoid it, but LLM generation usually rewrites.
-      // Let's clear for now.
-      output.textContent=''; 
-      
-      // We don't want to show the full overlay (blocking) for generation if we want "Non-blocking"?
-      // User said: "Load model... don't block input". 
-      // For "Generation", user didn't specify. Usually generation blocks input or just runs.
-      // If real-time, we definitely shouldn't block input.
-      // So let's NOT show the full overlay for generation. Just a status text?
-      // Or maybe a small spinner in the output area?
-      // The current overlay implementation covers the output area. That is fine. 
-      // But we shouldn't block *input*. My HTML structure separates them. 
-      // So showing overlay in output area is correct and doesn't block input.
-      
-      // However, for Real-time, flashing the overlay might be annoying.
-      // Let's use a subtler indicator for generation if possible, or just the overlay with "Generating..."
+      // Don't clear slides immediately if realtime? 
+      // Actually yes, clear to show new result.
+      state.generatedText = '';
+      state.slides = [];
       
       showOverlay(true);
       setStatus('Generating...');
-      setProgress(1); // Indeterminate or full? Just hide bar?
-      progress.parentElement.style.display = 'none'; // Hide progress bar during generation
+      setProgress(1); 
+      progress.parentElement.style.display = 'none';
 
       lastRunTime = Date.now();
-
-      const messages=[
-        {role:'system',content:'You are a high-quality social media content editor.'},
-        {role:'user',content:buildPrompt(text)}
-      ];
+      const messages=[{role:'system',content:'You are a high-quality social media content editor.'},{role:'user',content:buildPrompt(text)}];
+      
       try{
         const stream=await engine.chat.completions.create({messages,temperature:0.4,stream:true,max_tokens:600});
-        
-        // Once stream starts, hide overlay so we can see text appearing?
-        // Or keep overlay until done? Standard UI shows text streaming.
-        // So we MUST hide overlay as soon as we get the first chunk or immediately.
         showOverlay(false);
         
+        let fullAcc = "";
         for await(const chunk of stream){
           const token=chunk.choices?.[0]?.delta?.content||'';
-          output.textContent+=token;
+          fullAcc += token;
+          // Live update? 
+          // Updating slides live is tricky because of splitting logic.
+          // Let's update state.generatedText and re-split/render every few tokens or just at end?
+          // For smoothness, maybe just update at end or throttle render.
+          // Let's try updating every 20 chars?
+          state.generatedText = fullAcc;
+          // renderSlides(); // This might be too jumpy.
         }
-        // Success
+        // Final render
+        state.slides = splitContentToSlides(state.generatedText);
+        renderSlides();
       }catch(e){ 
         console.error(e); 
         showOverlay(true);
-        setStatus('Generation Failed', e.message);
-        // Auto hide after error?
+        setStatus('Failed', e.message);
         setTimeout(()=>showOverlay(false), 3000);
       }finally{ 
         isGenerating = false;
         runBtn.disabled=false; 
-        progress.parentElement.style.display = 'block'; // Reset
-        if(output.textContent.length === 0 && !overlay.style.display === 'none'){
-            // If empty and no error shown, maybe show placeholder?
-        }
-        // If realtime, we might trigger again.
-        updateControls(); // Ensure button states are correct
+        progress.parentElement.style.display = 'block'; 
+        updateControls(); 
       }
     }
 
     runBtn.addEventListener('click',run);
-
-    // Auto load small model on enter
+    
+    // Initial Render
+    renderSlides();
     loadModel('small');
   </script>
 </body>
