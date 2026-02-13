@@ -25,6 +25,19 @@
     .checkbox-label{display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;user-select:none}
     label{font-size:12px;color:var(--muted);margin-bottom:2px;display:block}
     
+    textarea{
+        width: 100%;
+        min-height: 200px;
+        box-sizing: border-box;
+        padding: 12px;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        font-family: inherit;
+        resize: vertical;
+        background: #fffdf7;
+        margin-bottom: 12px;
+    }
+    
     /* Slide Preview Area */
     .preview-area{
         overflow-x: auto;
@@ -62,6 +75,69 @@
     }
     .slide:hover{transform: translateY(-2px); box-shadow: 0 8px 16px rgba(0,0,0,0.15);}
     
+    /* Inline Toolbar */
+    .inline-toolbar {
+        position: absolute;
+        top: 10px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 4px;
+        display: flex;
+        gap: 4px;
+        z-index: 100;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        flex-wrap: wrap;
+        max-width: 220px;
+    }
+    .inline-toolbar button {
+        padding: 4px 8px;
+        font-size: 12px;
+        background: transparent;
+        color: var(--text);
+        border-radius: 4px;
+        border: 1px solid transparent;
+        cursor: pointer;
+    }
+    .inline-toolbar button:hover {
+        background: var(--bg);
+        border-color: var(--border);
+    }
+    .color-swatch {
+        width: 16px; height: 16px; border-radius: 50%; display: inline-block; vertical-align: middle;
+        border: 1px solid #d9d9d9;
+    }
+    
+    /* Watermark */
+    .watermark {
+        position: absolute; pointer-events: none;
+        white-space: nowrap; font-weight: bold;
+        z-index: 5;
+        transform-origin: center;
+    }
+    
+    /* Footnote */
+    .footnote {
+        position: absolute; z-index: 10;
+        bottom: 0; left: 0; right: 0;
+        padding: 8px 12px;
+        font-size: 13px; opacity: 0.8;
+        pointer-events: none;
+    }
+    
+    /* Badge */
+    .slide-badge {
+        position: absolute; z-index: 10;
+        padding: 4px 8px; border-radius: 4px;
+        font-size: 10px; font-weight: bold;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        pointer-events: none;
+    }
+    .slide-badge.tl { top: 12px; left: 12px; }
+    .slide-badge.tr { top: 12px; right: 12px; }
+
     /* Slide Content Layers */
     .slide-bg{position:absolute;inset:0;z-index:0;background-size:cover;background-position:center;}
     .slide-overlay{position:absolute;inset:0;z-index:1;} /* Optional tint */
@@ -126,7 +202,10 @@
     .file-input-wrapper { position: relative; overflow: hidden; display: inline-block; }
     .file-input-wrapper input[type=file] { position: absolute; left: 0; top: 0; opacity: 0; cursor: pointer; height: 100%; width: 100%;}
   </style>
-</head>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+  </head>
 <body>
   <div class="wrap">
     <h1>RedNote Writer (Local AI)</h1>
@@ -206,7 +285,7 @@
                 </div>
                 <div class="col" style="gap:4px">
                     <label>Pad Opacity</label>
-                    <input type="number" id="contentPadOp" value="0" min="0" max="1" step="0.1" style="width:40px">
+                    <input type="number" id="contentPadOp" value="0.8" min="0" max="1" step="0.1" style="width:40px">
                 </div>
                 <div class="col" style="gap:4px">
                     <label>Text Color</label>
@@ -240,9 +319,91 @@
       </div>
 
     </div>
+    
+    <!-- Decorations: Badge, Watermark, Footnote -->
+    <div class="card" style="margin-bottom: 12px;">
+         <div class="row" style="align-items:stretch">
+             
+             <!-- Badge -->
+            <div class="control-group col" style="flex:1">
+                <div class="control-title">Badge (Global)</div>
+                <div class="row">
+                    <div class="col" style="gap:4px">
+                       <label>Text</label>
+                       <input type="text" id="badgeText" placeholder="New" style="width:50px">
+                    </div>
+                    <div class="col" style="gap:4px">
+                       <label>Bg Color</label>
+                       <input type="color" id="badgeColor" value="#ff4d4f" style="width:30px;height:30px;padding:0;border:0">
+                    </div>
+                    <div class="col" style="gap:4px">
+                       <label>Pos</label>
+                       <select id="badgePos" style="width:50px">
+                           <option value="tl">TL</option>
+                           <option value="tr">TR</option>
+                       </select>
+                    </div>
+                    <div class="col" style="gap:4px">
+                       <label>Rot</label>
+                       <input type="number" id="badgeRot" value="0" style="width:40px">
+                    </div>
+                </div>
+            </div>
+
+             <!-- Watermark -->
+             <div class="control-group col" style="flex:1">
+                 <div class="control-title">Watermark</div>
+                 <div class="row">
+                     <div class="col" style="gap:4px">
+                        <label>Text</label>
+                        <input type="text" id="wmText" placeholder="None" style="width:60px">
+                     </div>
+                     <div class="col" style="gap:4px">
+                        <label>Op</label>
+                        <input type="number" id="wmOp" value="0.1" step="0.1" min="0" max="1" style="width:40px">
+                     </div>
+                     <div class="col" style="gap:4px">
+                        <label>Rot</label>
+                        <input type="number" id="wmRot" value="-30" style="width:40px">
+                     </div>
+                     <div class="col" style="gap:4px">
+                        <label>Color</label>
+                        <input type="color" id="wmColor" value="#000000" style="width:30px;height:30px;padding:0;border:0">
+                     </div>
+                 </div>
+             </div>
+
+             <!-- Footnote -->
+             <div class="control-group col" style="flex:1">
+                 <div class="control-title">Footnote</div>
+                 <div class="row">
+                     <div class="col" style="gap:4px">
+                        <label>Text</label>
+                        <input type="text" id="fnText" placeholder="@author" style="width:70px">
+                     </div>
+                     <div class="col" style="gap:4px">
+                        <label>X %</label>
+                        <input type="number" id="fnX" value="50" style="width:40px">
+                     </div>
+                     <div class="col" style="gap:4px">
+                        <label>Bot px</label>
+                        <input type="number" id="fnBot" value="20" style="width:40px">
+                     </div>
+                      <div class="col" style="gap:4px">
+                        <label>Color</label>
+                        <input type="color" id="fnColor" value="#888888" style="width:30px;height:30px;padding:0;border:0">
+                     </div>
+                 </div>
+             </div>
+             
+         </div>
+    </div>
 
     <!-- Output Preview (Slides) -->
     <div class="card rel" style="min-height: 480px;">
+        <div style="position:absolute; top:14px; right:14px; z-index:100">
+             <button id="downloadAllBtn" class="secondary" style="font-size:12px">Download All</button>
+        </div>
       <div class="preview-area" id="slideContainer">
         <!-- Slides will be injected here -->
         <div class="muted" style="margin:auto">Generated slides will appear here...</div>
@@ -265,7 +426,7 @@
       <div class="row">
         <button id="run" disabled>Rewrite</button>
         
-        <label class="checkbox-label">
+        <label class="checkbox-label hidden">
           <input type="checkbox" id="realtimeToggle"> 
           Real-time
         </label>
@@ -325,9 +486,26 @@
     // Ending Controls
     const endCircleSize = $('endCircleSize');
     const endCircleY = $('endCircleY');
+    
+    // Download Control
+    const downloadAllBtn = $('downloadAllBtn');
+
+    // Decoration Controls
+    const badgeText = $('badgeText');
+    const badgeColor = $('badgeColor');
+    const badgePos = $('badgePos');
+    const badgeRot = $('badgeRot');
+    const wmText = $('wmText');
+    const wmOp = $('wmOp');
+    const wmRot = $('wmRot');
+    const wmColor = $('wmColor');
+    const fnText = $('fnText');
+    const fnX = $('fnX');
+    const fnBot = $('fnBot');
+    const fnColor = $('fnColor');
 
     // State
-    const state = {
+    const defaultState = {
         coverImg: null,
         contentBg: null,
         endImg: null,
@@ -341,16 +519,110 @@
         
         contentPad: 24,
         contentPadColor: '#ffffff',
-        contentPadOp: 0,
+        contentPadOp: 0.8,
         contentColor: '#000000',
         contentFont: 'sans-serif',
 
         endCircleSize: 160,
         endCircleY: 50,
 
+        // Decorations
+        badgeText: 'NEW',
+        badgeColor: '#ff4d4f',
+        badgePos: 'tr',
+        badgeRot: 0,
+        
+        wmText: '',
+        wmOp: 0.1,
+        wmRot: -30,
+        wmColor: '#000000',
+        
+        fnText: '',
+        fnX: 50,
+        fnBot: 20,
+        fnColor: '#888888',
+        
+        slideConfigs: {}, // index -> { showBadge: bool }
+
         generatedText: '',
         slides: [] 
     };
+
+    // Load from LocalStorage
+    let savedState = {};
+    try {
+        const saved = localStorage.getItem('rednoteState');
+        if(saved) savedState = JSON.parse(saved);
+    } catch(e){ console.error(e); }
+
+    const state = { ...defaultState, ...savedState };
+    
+    // Restore Input
+    if(localStorage.getItem('rednoteInput')) {
+        input.value = localStorage.getItem('rednoteInput');
+    }
+
+    // Save State Helper
+    function saveState(){
+        localStorage.setItem('rednoteState', JSON.stringify(state));
+    }
+    
+    // Save Input Helper
+    input.addEventListener('input', ()=>{
+        localStorage.setItem('rednoteInput', input.value);
+    });
+
+    // --- Helper for Download ---
+    async function downloadSlide(element, filename) {
+        if(!element) return;
+        try {
+            const canvas = await html2canvas(element, {
+                scale: 2, // Retina quality
+                useCORS: true,
+                backgroundColor: null // Transparent if needed, but slides have bg
+            });
+            // Trigger download
+            const link = document.createElement('a');
+            link.download = filename;
+            link.href = canvas.toDataURL("image/png");
+            link.click();
+        } catch(e) {
+            console.error('Download failed:', e);
+            alert('Download failed. Check console.');
+        }
+    }
+
+    // Download All
+    if(downloadAllBtn){
+        downloadAllBtn.addEventListener('click', async () => {
+             downloadAllBtn.textContent = 'Generating...';
+             downloadAllBtn.disabled = true;
+             
+             try {
+                 const zip = new JSZip();
+                 const slides = slideContainer.querySelectorAll('.slide');
+                 
+                 // Process sequentially to avoid freezing browser too much
+                 for(let i=0; i<slides.length; i++){
+                     const s = slides[i];
+                     const name = `slide_${i+1}.png`;
+                     const canvas = await html2canvas(s, { scale: 2, useCORS: true });
+                     const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+                     zip.file(name, blob);
+                 }
+                 
+                 const content = await zip.generateAsync({type:"blob"});
+                 saveAs(content, "slides_pack.zip"); // FileSaver.js
+                 
+             } catch(e) {
+                 console.error(e);
+                 alert('Batch download failed');
+             } finally {
+                 downloadAllBtn.textContent = 'Download All';
+                 downloadAllBtn.disabled = false;
+             }
+        });
+    }
 
     // Models
     const SMALL_MODEL = 'Qwen2-0.5B-Instruct-q4f16_1-MLC';
@@ -366,8 +638,14 @@
     // --- UI Listeners ---
 
     function bind(el, key, type='value'){
+        // Set initial value from state
+        if(type === 'value') el.value = state[key];
+        else if(type === 'number') el.value = state[key];
+        // Special handling for some inputs if needed?
+        
         el.addEventListener('input', (e)=>{
             state[key] = type==='number'? parseFloat(e.target.value) : e.target.value;
+            saveState();
             renderSlides();
         });
     }
@@ -390,6 +668,20 @@
     bind(endCircleSize, 'endCircleSize', 'number');
     bind(endCircleY, 'endCircleY', 'number');
 
+    // Decoration Binds
+    bind(badgeText, 'badgeText');
+    bind(badgeColor, 'badgeColor');
+    bind(badgePos, 'badgePos');
+    bind(badgeRot, 'badgeRot', 'number');
+    bind(wmText, 'wmText');
+    bind(wmOp, 'wmOp', 'number');
+    bind(wmRot, 'wmRot', 'number');
+    bind(wmColor, 'wmColor');
+    bind(fnText, 'fnText');
+    bind(fnX, 'fnX', 'number');
+    bind(fnBot, 'fnBot', 'number');
+    bind(fnColor, 'fnColor');
+
     // Image Handling
     function handleImageUpload(e, key){
         const file = e.target.files[0];
@@ -397,6 +689,7 @@
         const reader = new FileReader();
         reader.onload = (evt) => {
             state[key] = evt.target.result;
+            saveState();
             renderSlides();
         };
         reader.readAsDataURL(file);
@@ -409,6 +702,7 @@
         state.coverImg = null;
         state.contentBg = null;
         state.endImg = null;
+        saveState();
         renderSlides();
     });
 
@@ -418,7 +712,7 @@
         slideContainer.innerHTML = '';
         
         // 1. Cover Slide
-        const coverWrapper = createSlideWrapper('Cover');
+        const coverWrapper = createSlideWrapper('Cover', -1, true);
         const coverSlide = createSlideElement();
         if(state.coverImg) setSlideBg(coverSlide, state.coverImg);
         else coverSlide.style.background = '#e8d6c6';
@@ -452,13 +746,58 @@
         const renderChunks = chunks.length ? chunks : [];
 
         renderChunks.forEach((text, idx) => {
-            const wrapper = createSlideWrapper(`Page ${idx+1}`);
+            const wrapper = createSlideWrapper(`Page ${idx+1}`, idx, true);
             const slide = createSlideElement();
             if(state.contentBg) setSlideBg(slide, state.contentBg);
             
+            // Watermark (Global)
+            if(state.wmText){
+                const wm = document.createElement('div');
+                wm.className = 'watermark';
+                wm.textContent = state.wmText;
+                wm.style.opacity = state.wmOp;
+                wm.style.transform = `translate(-50%, -50%) rotate(${state.wmRot}deg)`;
+                wm.style.color = state.wmColor;
+                wm.style.fontSize = '24px';
+                wm.style.left = '50%';
+                wm.style.top = '50%';
+                slide.appendChild(wm);
+            }
+
+            // Footnote (Global)
+            if(state.fnText){
+                const fn = document.createElement('div');
+                fn.className = 'footnote';
+                fn.textContent = state.fnText;
+                fn.style.color = state.fnColor;
+                fn.style.bottom = `${state.fnBot}px`;
+                fn.style.left = `${state.fnX}%`;
+                fn.style.transform = `translateX(-50%)`;
+                slide.appendChild(fn);
+            }
+
+            // Badge (Per Slide Toggle)
+            const config = state.slideConfigs[idx] || {};
+            // Change: Badge is hidden by default (user requirement 1)
+            // Logic: if config.showBadge === true then show.
+            // Previous: config.showBadge !== false (default true)
+            if(state.badgeText && config.showBadge === true){
+                const badge = document.createElement('div');
+                badge.className = `slide-badge ${state.badgePos}`;
+                badge.textContent = state.badgeText;
+                badge.style.backgroundColor = state.badgeColor;
+                badge.style.color = '#fff';
+                // Add Rotation
+                badge.style.transform = `rotate(${state.badgeRot}deg)`;
+                slide.appendChild(badge);
+            }
+            
             const content = document.createElement('div');
             content.className = 'slide-content';
-            content.style.padding = `${state.contentPad}px`;
+            
+            // Padding gap: Add 24px internal gap between border and text
+            const innerGap = 24; 
+            content.style.padding = `${state.contentPad + innerGap}px`;
             
             // Padding Background (Frame/Border effect)
             if(state.contentPadOp > 0){
@@ -468,27 +807,9 @@
                  padBg.style.border = `${state.contentPad}px solid ${state.contentPadColor}`;
                  padBg.style.background = 'transparent'; // Center is clear
                  padBg.style.opacity = state.contentPadOp;
-                 padBg.style.zIndex = 1; // On top of bg, below text? No, text is z-index 2.
-                 // We need this to be below text but above bg.
-                 // content is z-index 2.
-                 // This padBg is appended to content.
-                 // So it will be inside content.
-                 // content has padding.
-                 // If content has padding, and padBg is absolute inset 0 relative to content...
-                 // content width = 100%.
-                 // padBg will cover the content area.
-                 // We want padBg to cover the SLIDE.
-                 // Append padBg to SLIDE, not CONTENT.
-                 // slide is relative.
                  padBg.style.zIndex = 1; 
                  padBg.style.pointerEvents = 'none';
                  padBg.style.boxSizing = 'border-box';
-                 
-                 // Note: "content" has z-index 2. We want padBg to be visible.
-                 // If padBg is z-index 1, it's under content.
-                 // Content has text. Text is what we see.
-                 // The "padding area" of content is empty space.
-                 // So z-index 1 is fine.
                  slide.appendChild(padBg);
             }
 
@@ -497,6 +818,21 @@
             textEl.style.color = state.contentColor;
             textEl.style.fontFamily = state.contentFont;
             textEl.innerHTML = parseMarkdown(text); 
+            // Make content editable
+            textEl.contentEditable = true;
+            textEl.style.outline = 'none'; // Clean look
+            textEl.addEventListener('input', ()=>{
+                // Update state when user edits slide content directly
+                state.slides[idx] = textEl.innerText; 
+                saveState();
+            });
+            // Show toolbar on focus?
+            textEl.addEventListener('focus', () => showToolbar(textEl));
+            textEl.addEventListener('blur', (e) => {
+                 // Delay hiding to allow button clicks
+                 setTimeout(()=>hideToolbar(), 200);
+            });
+
             content.appendChild(textEl);
             slide.appendChild(content);
             wrapper.appendChild(slide);
@@ -504,7 +840,7 @@
         });
 
         // 3. Ending Slide
-        const endWrapper = createSlideWrapper('Ending');
+        const endWrapper = createSlideWrapper('Ending', -1, true);
         const endSlide = createSlideElement();
         endSlide.classList.add('ending');
         if(state.endImg) setSlideBg(endSlide, state.endImg);
@@ -515,16 +851,8 @@
         mask.className = 'ending-mask';
         
         // Calculate circle and mask
-        // Using radial gradient to create "hole"
-        // center at 50% state.endCircleY%
-        const cy = state.endCircleY;
+        const cy = 100 - state.endCircleY; 
         const r = state.endCircleSize / 2;
-        // We need pixel value for radial-gradient if we want exact pixels?
-        // Or we can use `transparent r, black r+1`.
-        // The center position is percentage.
-        // BUT the slide height is fixed in CSS preview as aspect-ratio.
-        // We can approximate or use exact calculation if we assume slide is 320px wide -> height = 320 * 4/3 = 426px.
-        // Let's use `radial-gradient(circle at 50% ${cy}%, transparent ${r}px, rgba(0,0,0,0.9) ${r+1}px)`
         
         mask.style.background = `radial-gradient(circle at 50% ${cy}%, transparent ${r}px, rgba(0,0,0,0.9) ${r+1}px)`;
         
@@ -537,12 +865,6 @@
         const cta = document.createElement('div');
         cta.className = 'cta-box';
         cta.textContent = "Follow for more updates ✓";
-        // Position CTA below circle.
-        // Circle bottom is cy% + r px.
-        // We can just put it at bottom of mask with padding, or relative to circle.
-        // User said "CTA below circle adjust together".
-        // Let's calculate top position for CTA.
-        // Top = cy% + r + 20px (gap)
         cta.style.position = 'absolute';
         cta.style.top = `calc(${cy}% + ${r}px + 20px)`;
         cta.style.left = '50%';
@@ -556,14 +878,66 @@
         slideContainer.appendChild(endWrapper);
     }
 
-    function createSlideWrapper(label){
+    function createSlideWrapper(label, idx = -1, allowDownload=false){
         const w = document.createElement('div');
         w.className = 'slide-wrapper';
-        const l = document.createElement('div');
-        l.className = 'muted';
-        l.style.textAlign='center';
+        
+        const header = document.createElement('div');
+        header.className = 'row muted';
+        header.style.justifyContent = 'space-between';
+        header.style.fontSize = '12px';
+        
+        const leftGrp = document.createElement('div');
+        leftGrp.style.display='flex'; leftGrp.style.gap='8px'; leftGrp.style.alignItems='center';
+        
+        const l = document.createElement('span');
         l.textContent = label;
-        w.appendChild(l);
+        leftGrp.appendChild(l);
+        
+        // Download Button per slide
+        if(allowDownload){
+            const dlBtn = document.createElement('button');
+            dlBtn.textContent = '⬇';
+            dlBtn.style.padding = '2px 6px';
+            dlBtn.style.fontSize = '10px';
+            dlBtn.style.borderRadius = '4px';
+            dlBtn.style.background = 'transparent';
+            dlBtn.style.border = '1px solid var(--border)';
+            dlBtn.style.color = 'var(--accent)';
+            dlBtn.title = "Download this slide";
+            dlBtn.onclick = () => {
+                 const slideEl = w.querySelector('.slide');
+                 downloadSlide(slideEl, `${label.replace(/\s+/g,'_')}.png`);
+            };
+            leftGrp.appendChild(dlBtn);
+        }
+
+        header.appendChild(leftGrp);
+
+        // Add Badge Toggle for content slides
+        if(idx >= 0 && state.badgeText){
+            const labelEl = document.createElement('label');
+            labelEl.className = 'checkbox-label';
+            labelEl.style.margin = '0';
+            const cb = document.createElement('input');
+            cb.type = 'checkbox';
+            // Default false (user requirement 1)
+            const config = state.slideConfigs[idx] || {};
+            cb.checked = config.showBadge === true; 
+            
+            cb.addEventListener('change', ()=>{
+                 if(!state.slideConfigs[idx]) state.slideConfigs[idx] = {};
+                 state.slideConfigs[idx].showBadge = cb.checked;
+                 saveState();
+                 renderSlides();
+            });
+            
+            labelEl.appendChild(cb);
+            labelEl.appendChild(document.createTextNode('Badge'));
+            header.appendChild(labelEl);
+        }
+
+        w.appendChild(header);
         return w;
     }
 
@@ -592,6 +966,92 @@
             .replace(/\*\*(.*)\*\*/gim, '<b>$1</b>')
             .replace(/\n/gim, '<br>');
         return html;
+    }
+
+    // --- Toolbar Logic ---
+    let activeElement = null;
+    const toolbar = document.createElement('div');
+    toolbar.className = 'inline-toolbar hidden';
+    
+    // Define palette
+    const colors = [
+        '#000000', '#333333', '#888888', '#ffffff', 
+        '#c86a3a', '#e05a47', '#ff4d4f', '#f5222d',
+        '#faad14', '#52c41a', '#13c2c2', '#1890ff',
+        '#2f54eb', '#722ed1', '#eb2f96'
+    ];
+    
+    let colorBtns = colors.map(c => 
+        `<button class="color-btn" data-color="${c}" title="${c}"><span class="color-swatch" style="background:${c}"></span></button>`
+    ).join('');
+
+    toolbar.innerHTML = `
+        <div style="display:flex; gap:4px; margin-bottom:4px; width:100%; justify-content:center;">
+            <button id="tb-bold" title="Bold" style="font-weight:bold">B</button>
+            <button id="tb-bullet" title="Bullet List">• List</button>
+            <button id="tb-small" title="Normal Size">Norm</button>
+            <button id="tb-large" title="Large Size">Big</button>
+            <button id="tb-color" title="Text Color" style="color:var(--accent)">Color ▾</button>
+        </div>
+        <div id="tb-palette" class="hidden" style="display:flex; gap:2px; flex-wrap:wrap; justify-content:center; padding-top:4px; border-top:1px solid var(--border)">
+            ${colorBtns}
+        </div>
+    `;
+    document.body.appendChild(toolbar);
+
+    // Event Delegation for Toolbar
+    toolbar.addEventListener('mousedown', (e) => {
+        // Prevent losing focus from contentEditable
+        e.preventDefault();
+        const btn = e.target.closest('button');
+        if(!btn) return;
+        
+        // Handle Color Buttons
+        if(btn.classList.contains('color-btn')){
+            const color = btn.dataset.color;
+            document.execCommand('foreColor', false, color);
+            // Hide palette after selection? Optional. User said "click button to appear", implied modal-ish.
+            // Let's keep it open or close it? Close it feels cleaner.
+            document.getElementById('tb-palette').classList.add('hidden');
+            return;
+        }
+
+        const cmd = btn.id;
+        if(cmd === 'tb-color') {
+            document.getElementById('tb-palette').classList.toggle('hidden');
+            return;
+        }
+        
+        // Using document.execCommand for rich text editing
+        if(cmd === 'tb-bold') document.execCommand('bold', false, null);
+        if(cmd === 'tb-bullet') document.execCommand('insertUnorderedList', false, null);
+        if(cmd === 'tb-small') document.execCommand('fontSize', false, '3'); // standard
+        if(cmd === 'tb-large') document.execCommand('fontSize', false, '5'); // larger
+    });
+
+    function showToolbar(el){
+        activeElement = el;
+        const rect = el.getBoundingClientRect();
+        // Calculate position relative to document
+        const top = window.scrollY + rect.top - 40;
+        const left = window.scrollX + rect.left + (rect.width/2);
+        
+        toolbar.style.top = `${top}px`;
+        toolbar.style.left = `${left}px`;
+        toolbar.style.transform = 'translateX(-50%)'; // Center horizontally
+        toolbar.classList.remove('hidden');
+        
+        // Reset palette
+        const pal = document.getElementById('tb-palette');
+        if(pal) pal.classList.add('hidden');
+    }
+
+    function hideToolbar(){
+        // Delay to allow click to register if moving focus
+        setTimeout(() => {
+            if(document.activeElement && document.activeElement.isContentEditable) return;
+            toolbar.classList.add('hidden');
+        }, 100);
     }
 
     // --- Content Splitting Logic ---
@@ -688,24 +1148,24 @@
     loadLargeBtn.addEventListener('click', () => loadModel('large'));
 
     // --- Realtime & Run ---
-    function triggerRealtime() {
-        if(!realtimeToggle.checked) return;
-        const now = Date.now();
-        clearTimeout(debounceTimer);
-        if(lastRunTime > 0 && (now - lastRunTime > 10000)){
-             run();
-        } else {
-             debounceTimer = setTimeout(run, 3000);
-        }
-    }
+    // function triggerRealtime() {
+    //     if(!realtimeToggle.checked) return;
+    //     const now = Date.now();
+    //     clearTimeout(debounceTimer);
+    //     if(lastRunTime > 0 && (now - lastRunTime > 10000)){
+    //          run();
+    //     } else {
+    //          debounceTimer = setTimeout(run, 3000);
+    //     }
+    // }
 
-    realtimeToggle.addEventListener('change', () => {
-        const on = realtimeToggle.checked;
-        rtWarning.classList.toggle('hidden', !on);
-        if(!on) clearTimeout(debounceTimer);
-        else if(input.value.trim()) triggerRealtime();
-    });
-    input.addEventListener('input', triggerRealtime);
+    // realtimeToggle.addEventListener('change', () => {
+    //     const on = realtimeToggle.checked;
+    //     rtWarning.classList.toggle('hidden', !on);
+    //     if(!on) clearTimeout(debounceTimer);
+    //     else if(input.value.trim()) triggerRealtime();
+    // });
+    // input.addEventListener('input', triggerRealtime);
 
     function buildPrompt(userText){
       const len = userText.length;
