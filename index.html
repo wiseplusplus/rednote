@@ -489,7 +489,7 @@
                  // Content has text. Text is what we see.
                  // The "padding area" of content is empty space.
                  // So z-index 1 is fine.
-                 slide.insertBefore(padBg, content);
+                 slide.appendChild(padBg);
             }
 
             const textEl = document.createElement('div');
